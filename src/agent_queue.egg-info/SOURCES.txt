@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/agent_queue/__init__.py
+src/agent_queue/dedup_queue.py
+src/agent_queue/queue.py
+src/agent_queue/task.py
+src/agent_queue/worker_pool.py
+src/agent_queue.egg-info/PKG-INFO
+src/agent_queue.egg-info/SOURCES.txt
+src/agent_queue.egg-info/dependency_links.txt
+src/agent_queue.egg-info/requires.txt
+src/agent_queue.egg-info/top_level.txt
+tests/test_dedup_queue.py
+tests/test_queue.py
+tests/test_task.py
+tests/test_worker_pool.py
