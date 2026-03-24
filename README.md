@@ -1,23 +1,24 @@
 # agent-queue
 
-> Production task queue for async LLM agent workloads — pure stdlib, thread-safe, priority + deduplication.
+**Priority task queue for multi-agent systems.**
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Zero deps](https://img.shields.io/badge/dependencies-none-brightgreen)](pyproject.toml)
+Zero dependencies. Pure Python (≥3.10). Built on `heapq`.
 
 ---
 
-## The Problem
+## Why?
 
-Multi-agent LLM systems generate tasks faster than they can be processed. Without a proper queue:
+Multi-agent systems generate tasks faster than they can execute them.  
+Without a queue, tasks get lost, priorities ignored, and work duplicated.
 
-- Tasks pile up in unbounded memory
-- Duplicate requests fire repeatedly (expensive!)
-- Urgent tasks wait behind slow batch jobs
-- Backpressure is impossible — producers never slow down
-
-**agent-queue** solves all of this with a single pip install and zero extra dependencies.
+`agent-queue` gives you:
+- ✅ **Priority ordering** — critical > high > normal > low (any int)
+- ✅ **FIFO tie-breaking** — equal-priority tasks in insertion order
+- ✅ **Dead-letter handling** — permanently failed tasks go to DLQ
+- ✅ **Retry tracking** — automatic re-queue with configurable max retries
+- ✅ **Status lifecycle** — `pending → running → done / failed / dead`
+- ✅ **Bounded queues** — optional maxsize with `QueueFullError`
+- ✅ **Serialization** — `to_dict()` / `from_dict()` for persistence
 
 ---
 
@@ -27,128 +28,62 @@ Multi-agent LLM systems generate tasks faster than they can be processed. Withou
 pip install agent-queue
 ```
 
-Or from source:
-
-```bash
-git clone https://github.com/example/agent-queue.git
-cd agent-queue && pip install -e .
-```
-
 ---
 
-## Quick Start
-
-```python
-from agent_queue import Task, TaskQueue, WorkerPool
-
-# 1. Create a bounded queue
-queue = TaskQueue(max_size=500)
-
-# 2. Define your worker
-def handle_task(task: Task):
-    print(f"[worker] processing: {task.payload} (priority={task.priority})")
-
-# 3. Start a pool of workers
-pool = WorkerPool(queue, handle_task, num_workers=4)
-pool.start()
-
-# 4. Produce tasks
-for i in range(10):
-    queue.put(Task(payload=f"prompt-{i}", priority=i % 3))
-
-# 5. Graceful shutdown
-pool.stop()
-print(pool.stats())
-```
-
----
-
-## Backpressure Example
-
-When the queue fills up, producers are automatically throttled. This is the key to preventing memory exhaustion:
+## Quick Start — Multi-Agent Task Dispatch
 
 ```python
 import time
-import threading
-from agent_queue import Task, TaskQueue, WorkerPool, QueueFullError
+from agent_queue import Task, TaskQueue, DeadLetterQueue, QueueWorker
 
-queue = TaskQueue(max_size=10)  # tight bound — fills up fast
+# ── 1. Create infrastructure ──────────────────────────────────────────────────
+queue = TaskQueue(maxsize=1000)
+dlq   = DeadLetterQueue(maxsize=500)
 
-def slow_worker(task: Task):
-    time.sleep(0.1)  # simulate LLM API latency
+# ── 2. Define a handler (the actual work) ─────────────────────────────────────
+def dispatch_to_agent(task: Task) -> None:
+    agent_id = task.payload.get("agent")
+    prompt   = task.payload.get("prompt")
+    print(f"[Agent {agent_id}] Processing: {prompt!r}")
+    # ... call your LLM, run a subprocess, post to an API, etc.
+    time.sleep(0.01)   # simulate work
 
-pool = WorkerPool(queue, slow_worker, num_workers=2)
-pool.start()
+worker = QueueWorker(queue, dispatch_to_agent, dead_letter=dlq)
 
-# Producer — tries to push 50 tasks, gets throttled when queue is full
-throttled = 0
-for i in range(50):
-    try:
-        # block=True, timeout=0.5 → wait up to 500 ms for space
-        queue.put(Task(payload=f"task-{i}", priority=1), block=True, timeout=0.5)
-    except QueueFullError:
-        throttled += 1
-        print(f"  ⚠️  Backpressure: producer throttled at task {i}")
+# ── 3. Agents push tasks with different priorities ────────────────────────────
+# Priority levels (any int — higher = served first):
+#   100 = critical, 10 = high, 5 = normal, 1 = low
 
-pool.stop()
-print(f"\nStats: {queue.stats()}")
-print(f"Producer was throttled {throttled} time(s).")
+queue.push(Task("report-gen",     {"agent": "writer",  "prompt": "Write Q1 report"},   priority=5))
+queue.push(Task("alert-handler",  {"agent": "monitor", "prompt": "Check system health"}, priority=100))
+queue.push(Task("email-draft",    {"agent": "comms",   "prompt": "Draft newsletter"},  priority=1))
+queue.push(Task("code-review",    {"agent": "coder",   "prompt": "Review PR #42"},     priority=10))
+
+print(f"Queue size: {queue.size}")
+print(f"Next up:    {queue.peek()}")
+
+# ── 4. Process all tasks in priority order ────────────────────────────────────
+processed = worker.process_all()
+print(f"\nProcessed {processed} tasks")
+
+# ── 5. Inspect dead-letter queue ──────────────────────────────────────────────
+if dlq.count:
+    print(f"\nFailed tasks ({dlq.count}):")
+    for entry in dlq.list():
+        print(f"  - {entry['task']['id']}: {entry['reason']}")
 ```
 
-**Output (example):**
+**Output:**
 ```
-  ⚠️  Backpressure: producer throttled at task 12
-  ⚠️  Backpressure: producer throttled at task 13
-  ...
-Stats: {'enqueued': 38, 'dequeued': 38, 'dropped': 12, 'current_size': 0}
-Producer was throttled 12 time(s).
-```
+Queue size: 4
+Next up:    Task(id='alert-handler', priority=100, status='pending', retries=0/3)
 
-The producer *slows down automatically* — no special code needed, no unbounded growth.
+[Agent monitor] Processing: 'Check system health'
+[Agent coder]   Processing: 'Review PR #42'
+[Agent writer]  Processing: 'Write Q1 report'
+[Agent comms]   Processing: 'Draft newsletter'
 
----
-
-## Priority Ordering
-
-Higher `priority` values are dequeued first. Equal priorities are FIFO:
-
-```python
-from agent_queue import Task, TaskQueue
-
-q = TaskQueue(max_size=100)
-q.put(Task(payload="batch-job",   priority=0))
-q.put(Task(payload="normal-job",  priority=5))
-q.put(Task(payload="urgent-job",  priority=10))
-
-print(q.get().payload)  # urgent-job
-print(q.get().payload)  # normal-job
-print(q.get().payload)  # batch-job
-```
-
----
-
-## Deduplication
-
-`DeduplicatingQueue` drops tasks whose `id` is already in the queue — no expensive re-processing:
-
-```python
-from agent_queue import Task
-from agent_queue import DeduplicatingQueue
-
-dq = DeduplicatingQueue(max_size=100)
-
-t1 = Task(payload="process user 42", id="user-42")
-t2 = Task(payload="process user 42", id="user-42")  # duplicate
-
-dq.put(t1)
-dq.put(t2)  # silently dropped
-
-print(dq.size)        # 1
-print(dq.dedup_hits)  # 1
-print(dq.is_duplicate("user-42"))  # True
-
-consumed = dq.get()
-print(dq.is_duplicate("user-42"))  # False — slot freed
+Processed 4 tasks
 ```
 
 ---
@@ -157,66 +92,92 @@ print(dq.is_duplicate("user-42"))  # False — slot freed
 
 ### `Task`
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `id` | `str` | auto UUID4 | Unique task identifier |
-| `payload` | `Any` | required | Arbitrary task data |
-| `priority` | `int` | `0` | Higher = dequeued first |
-| `created_at` | `float` | `time.monotonic()` | Creation timestamp |
-| `attempts` | `int` | `0` | Retry counter (managed by caller) |
+```python
+Task(id: str, payload: dict, priority: int = 0, max_retries: int = 3)
+```
 
-Methods: `to_dict() -> dict`
+| Field | Type | Description |
+|---|---|---|
+| `id` | `str` | Unique task identifier |
+| `payload` | `dict` | Arbitrary task data |
+| `priority` | `int` | Higher = served first |
+| `max_retries` | `int` | Max retry attempts |
+| `retries` | `int` | Current retry count |
+| `status` | `str` | `pending / running / done / failed / dead` |
+| `created_at` | `float` | Unix timestamp |
+| `error` | `str \| None` | Last exception message |
+| `is_retriable` | `bool` | `retries < max_retries` |
+
+```python
+task.to_dict()          # → dict
+Task.from_dict(data)    # → Task
+```
 
 ### `TaskQueue`
 
 ```python
-TaskQueue(max_size: int = 1000)
+q = TaskQueue(maxsize=0)   # 0 = unlimited
+
+q.push(task)               # enqueue; raises QueueFullError if bounded+full
+q.pop()                    # → Task | None (highest priority first)
+q.peek()                   # → Task | None (no removal)
+q.contains("task-id")      # → bool
+q.size                     # → int
+q.empty                    # → bool
+len(q)                     # alias for q.size
 ```
 
-| Method/Property | Description |
-|----------------|-------------|
-| `put(task, block=True, timeout=None)` | Enqueue; blocks if full |
-| `put_nowait(task)` | Enqueue; raises `QueueFullError` if full |
-| `get(block=True, timeout=None)` | Dequeue; blocks if empty |
-| `get_nowait()` | Dequeue; raises `QueueEmptyError` if empty |
-| `size` | Current item count |
-| `is_empty` | `True` if size == 0 |
-| `is_full` | `True` if size == max_size |
-| `stats()` | `{enqueued, dequeued, dropped, current_size}` |
-
-### `DeduplicatingQueue`
-
-Inherits `TaskQueue`. Additional API:
-
-| Method/Property | Description |
-|----------------|-------------|
-| `is_duplicate(task_id)` | `True` if id is currently in queue |
-| `dedup_hits` | Count of dropped duplicates |
-
-### `WorkerPool`
+### `DeadLetterQueue`
 
 ```python
-WorkerPool(queue, worker_func, num_workers=4)
+dlq = DeadLetterQueue(maxsize=100)
+
+dlq.add(task, reason="handler raised ValueError")
+dlq.list()   # → list[dict]  (each: {task, reason, failed_at})
+dlq.count    # → int
+dlq.clear()
 ```
 
-| Method/Property | Description |
-|----------------|-------------|
-| `start()` | Spawn worker threads |
-| `stop(wait=True)` | Signal stop; optionally await threads |
-| `is_running` | `True` while any worker is alive |
-| `stats()` | `{workers_active, tasks_processed, tasks_failed, uptime_seconds}` |
+### `QueueWorker`
+
+```python
+worker = QueueWorker(queue, handler, dead_letter=dlq)
+
+worker.process_one()   # → bool (True if a task was processed)
+worker.process_all()   # → int  (count of tasks processed)
+```
+
+**Retry flow:**
+
+```
+handler(task) raises
+  → task.retries += 1
+  → task.is_retriable?
+      YES → re-queue (status = "pending")
+      NO  → dead_letter.add(task, reason) if DLQ else drop (status = "failed")
+```
 
 ---
 
-## Running Tests
+## Serialization Example (Persistence)
 
-```bash
-pip install pytest
-python -m pytest tests/ -v
+```python
+import json
+from agent_queue import Task
+
+task = Task("t1", {"prompt": "hello"}, priority=10)
+data = task.to_dict()
+
+# Save to Redis / Postgres / file
+json_str = json.dumps(data)
+
+# Restore later
+task2 = Task.from_dict(json.loads(json_str))
+assert task2.id == task.id
 ```
 
 ---
 
 ## License
 
-MIT © 2026
+MIT

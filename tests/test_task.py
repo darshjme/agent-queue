@@ -1,100 +1,122 @@
-"""Tests for the Task dataclass."""
+"""Tests for Task."""
 
 import time
-import uuid
-
 import pytest
-
 from agent_queue import Task
 
 
-# ---------------------------------------------------------------------------
-# Construction & defaults
-# ---------------------------------------------------------------------------
+# ── Construction ──────────────────────────────────────────────────────────────
 
-class TestTaskDefaults:
-    def test_auto_id_is_uuid4(self):
-        t = Task(payload="hello")
-        parsed = uuid.UUID(t.id, version=4)
-        assert str(parsed) == t.id
-
-    def test_unique_ids(self):
-        ids = {Task(payload=i).id for i in range(100)}
-        assert len(ids) == 100
-
-    def test_default_priority_is_zero(self):
-        t = Task(payload="x")
-        assert t.priority == 0
-
-    def test_default_attempts_is_zero(self):
-        t = Task(payload="x")
-        assert t.attempts == 0
-
-    def test_created_at_is_float(self):
-        t = Task(payload="x")
-        assert isinstance(t.created_at, float)
-
-    def test_created_at_is_recent(self):
-        before = time.monotonic()
-        t = Task(payload="x")
-        after = time.monotonic()
-        assert before <= t.created_at <= after
-
-    def test_custom_id(self):
-        t = Task(payload="x", id="my-custom-id")
-        assert t.id == "my-custom-id"
+def test_task_defaults():
+    t = Task("t1", {"action": "ping"})
+    assert t.id == "t1"
+    assert t.payload == {"action": "ping"}
+    assert t.priority == 0
+    assert t.max_retries == 3
+    assert t.retries == 0
+    assert t.status == "pending"
+    assert t.error is None
+    assert isinstance(t.created_at, float)
 
 
-# ---------------------------------------------------------------------------
-# Ordering
-# ---------------------------------------------------------------------------
-
-class TestTaskOrdering:
-    def test_higher_priority_sorts_first(self):
-        low = Task(payload="low", priority=1)
-        high = Task(payload="high", priority=10)
-        assert high < low   # min-heap: "less" = "dequeued first"
-
-    def test_equal_priority_fifo(self):
-        first = Task(payload="first", priority=5, created_at=1.0)
-        second = Task(payload="second", priority=5, created_at=2.0)
-        assert first < second  # earlier = dequeued first
-
-    def test_sort_key_consistency(self):
-        tasks = [
-            Task(payload="c", priority=3, created_at=1.0),
-            Task(payload="a", priority=10, created_at=1.0),
-            Task(payload="b", priority=3, created_at=0.5),
-        ]
-        sorted_tasks = sorted(tasks)
-        assert sorted_tasks[0].payload == "a"   # priority 10
-        assert sorted_tasks[1].payload == "b"   # priority 3, earlier
-        assert sorted_tasks[2].payload == "c"   # priority 3, later
-
-    def test_heapq_compatible(self):
-        import heapq
-        heap = []
-        for p in [1, 5, 3, 7, 2]:
-            heapq.heappush(heap, Task(payload=str(p), priority=p))
-        priorities = [heapq.heappop(heap).priority for _ in range(5)]
-        assert priorities == sorted([1, 5, 3, 7, 2], reverse=True)
+def test_task_custom_priority_and_retries():
+    t = Task("t2", {}, priority=10, max_retries=5)
+    assert t.priority == 10
+    assert t.max_retries == 5
 
 
-# ---------------------------------------------------------------------------
-# to_dict
-# ---------------------------------------------------------------------------
+# ── is_retriable ──────────────────────────────────────────────────────────────
 
-class TestTaskToDict:
-    def test_to_dict_keys(self):
-        t = Task(payload={"key": "value"}, priority=3)
-        d = t.to_dict()
-        assert set(d.keys()) == {"id", "payload", "priority", "created_at", "attempts"}
+def test_is_retriable_initially_true():
+    t = Task("t3", {}, max_retries=3)
+    assert t.is_retriable is True
 
-    def test_to_dict_values(self):
-        t = Task(payload=42, priority=7, id="abc", created_at=99.9, attempts=2)
-        d = t.to_dict()
-        assert d["id"] == "abc"
-        assert d["payload"] == 42
-        assert d["priority"] == 7
-        assert d["created_at"] == 99.9
-        assert d["attempts"] == 2
+
+def test_is_retriable_false_when_exhausted():
+    t = Task("t4", {}, max_retries=2)
+    t.retries = 2
+    assert t.is_retriable is False
+
+
+def test_is_retriable_boundary():
+    t = Task("t5", {}, max_retries=1)
+    t.retries = 0
+    assert t.is_retriable is True
+    t.retries = 1
+    assert t.is_retriable is False
+
+
+# ── Serialization ─────────────────────────────────────────────────────────────
+
+def test_to_dict_round_trip():
+    t = Task("t6", {"key": "value"}, priority=5, max_retries=2)
+    t.retries = 1
+    t.status = "running"
+    t.error = "oops"
+
+    d = t.to_dict()
+    assert d["id"] == "t6"
+    assert d["payload"] == {"key": "value"}
+    assert d["priority"] == 5
+    assert d["max_retries"] == 2
+    assert d["retries"] == 1
+    assert d["status"] == "running"
+    assert d["error"] == "oops"
+    assert isinstance(d["created_at"], float)
+
+
+def test_from_dict_restores_all_fields():
+    original = Task("t7", {"x": 1}, priority=3, max_retries=4)
+    original.retries = 2
+    original.status = "failed"
+    original.error = "bad"
+
+    restored = Task.from_dict(original.to_dict())
+    assert restored.id == original.id
+    assert restored.payload == original.payload
+    assert restored.priority == original.priority
+    assert restored.max_retries == original.max_retries
+    assert restored.retries == original.retries
+    assert restored.status == original.status
+    assert restored.error == original.error
+    assert restored.created_at == pytest.approx(original.created_at)
+
+
+def test_from_dict_defaults():
+    d = {"id": "t8", "payload": {}}
+    t = Task.from_dict(d)
+    assert t.priority == 0
+    assert t.max_retries == 3
+    assert t.retries == 0
+    assert t.status == "pending"
+    assert t.error is None
+
+
+# ── Comparison ────────────────────────────────────────────────────────────────
+
+def test_higher_priority_less_than():
+    """Higher priority task should come first in heapq (lt returns True)."""
+    low = Task("low", {}, priority=0)
+    high = Task("high", {}, priority=10)
+    # high < low in heap terms means high comes out first
+    assert high < low
+
+
+def test_equal_priority_fifo_order():
+    t1 = Task("t1", {}, priority=5)
+    time.sleep(0.001)
+    t2 = Task("t2", {}, priority=5)
+    # t1 created first → should come first
+    assert t1 < t2
+
+
+def test_task_equality_by_id():
+    t1 = Task("same-id", {}, priority=5)
+    t2 = Task("same-id", {}, priority=99)
+    assert t1 == t2
+
+
+def test_task_inequality():
+    t1 = Task("id-a", {})
+    t2 = Task("id-b", {})
+    assert t1 != t2

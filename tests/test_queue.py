@@ -1,181 +1,130 @@
 """Tests for TaskQueue."""
 
-import threading
-import time
-
 import pytest
-
-from agent_queue import Task, TaskQueue, QueueFullError, QueueEmptyError
-
-
-# ---------------------------------------------------------------------------
-# Basic put / get
-# ---------------------------------------------------------------------------
-
-class TestTaskQueueBasic:
-    def test_put_and_get(self):
-        q = TaskQueue(max_size=10)
-        t = Task(payload="hello")
-        q.put(t)
-        got = q.get()
-        assert got.payload == "hello"
-
-    def test_size_after_put(self):
-        q = TaskQueue(max_size=10)
-        assert q.size == 0
-        q.put(Task(payload="a"))
-        assert q.size == 1
-        q.put(Task(payload="b"))
-        assert q.size == 2
-
-    def test_size_after_get(self):
-        q = TaskQueue(max_size=10)
-        q.put(Task(payload="a"))
-        q.get()
-        assert q.size == 0
-
-    def test_is_empty_initially(self):
-        q = TaskQueue()
-        assert q.is_empty is True
-
-    def test_not_empty_after_put(self):
-        q = TaskQueue()
-        q.put(Task(payload="x"))
-        assert q.is_empty is False
-
-    def test_is_full(self):
-        q = TaskQueue(max_size=2)
-        assert q.is_full is False
-        q.put(Task(payload="a"))
-        q.put(Task(payload="b"))
-        assert q.is_full is True
-
-    def test_put_nowait_full_raises(self):
-        q = TaskQueue(max_size=1)
-        q.put_nowait(Task(payload="a"))
-        with pytest.raises(QueueFullError):
-            q.put_nowait(Task(payload="b"))
-
-    def test_get_nowait_empty_raises(self):
-        q = TaskQueue(max_size=10)
-        with pytest.raises(QueueEmptyError):
-            q.get_nowait()
-
-    def test_get_with_timeout_raises(self):
-        q = TaskQueue(max_size=10)
-        with pytest.raises(QueueEmptyError):
-            q.get(block=True, timeout=0.05)
-
-    def test_put_with_timeout_raises_when_full(self):
-        q = TaskQueue(max_size=1)
-        q.put(Task(payload="filler"))
-        with pytest.raises(QueueFullError):
-            q.put(Task(payload="overflow"), block=True, timeout=0.05)
-
-    def test_invalid_max_size(self):
-        with pytest.raises(ValueError):
-            TaskQueue(max_size=0)
+from agent_queue import Task, TaskQueue
+from agent_queue.queue import QueueFullError
 
 
-# ---------------------------------------------------------------------------
-# Priority ordering
-# ---------------------------------------------------------------------------
+# ── Basic push/pop ────────────────────────────────────────────────────────────
 
-class TestTaskQueuePriority:
-    def test_priority_ordering(self):
-        q = TaskQueue(max_size=10)
-        for p in [1, 5, 3]:
-            q.put(Task(payload=str(p), priority=p))
-        priorities = [q.get().priority for _ in range(3)]
-        assert priorities == [5, 3, 1]
-
-    def test_fifo_same_priority(self):
-        q = TaskQueue(max_size=10)
-        t1 = Task(payload="first", priority=1, created_at=1.0)
-        t2 = Task(payload="second", priority=1, created_at=2.0)
-        q.put(t2)
-        q.put(t1)
-        assert q.get().payload == "first"
-        assert q.get().payload == "second"
+def test_empty_queue():
+    q = TaskQueue()
+    assert q.empty is True
+    assert q.size == 0
+    assert q.pop() is None
+    assert q.peek() is None
 
 
-# ---------------------------------------------------------------------------
-# Stats
-# ---------------------------------------------------------------------------
-
-class TestTaskQueueStats:
-    def test_stats_initial(self):
-        q = TaskQueue()
-        s = q.stats()
-        assert s["enqueued"] == 0
-        assert s["dequeued"] == 0
-        assert s["dropped"] == 0
-        assert s["current_size"] == 0
-
-    def test_stats_after_operations(self):
-        q = TaskQueue(max_size=2)
-        q.put(Task(payload="a"))
-        q.put(Task(payload="b"))
-        # Queue is now full (size=2); try to overflow — should increment dropped
-        try:
-            q.put_nowait(Task(payload="overflow"))
-        except QueueFullError:
-            pass
-        q.get()  # dequeue one
-        s = q.stats()
-        assert s["enqueued"] == 2
-        assert s["dequeued"] == 1
-        assert s["dropped"] == 1
-        assert s["current_size"] == 1
+def test_push_single_and_pop():
+    q = TaskQueue()
+    t = Task("t1", {"a": 1})
+    q.push(t)
+    assert q.size == 1
+    assert q.empty is False
+    out = q.pop()
+    assert out is t
+    assert q.empty is True
 
 
-# ---------------------------------------------------------------------------
-# Thread safety
-# ---------------------------------------------------------------------------
+def test_priority_ordering():
+    """Higher priority tasks should be popped first."""
+    q = TaskQueue()
+    low = Task("low", {}, priority=0)
+    normal = Task("normal", {}, priority=5)
+    high = Task("high", {}, priority=10)
+    critical = Task("critical", {}, priority=100)
 
-class TestTaskQueueThreadSafety:
-    def test_concurrent_producers(self):
-        q = TaskQueue(max_size=500)
-        errors = []
+    q.push(low)
+    q.push(normal)
+    q.push(high)
+    q.push(critical)
 
-        def producer(n):
-            try:
-                for i in range(50):
-                    q.put(Task(payload=f"{n}-{i}"))
-            except Exception as e:
-                errors.append(e)
+    assert q.pop().id == "critical"
+    assert q.pop().id == "high"
+    assert q.pop().id == "normal"
+    assert q.pop().id == "low"
 
-        threads = [threading.Thread(target=producer, args=(i,)) for i in range(5)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
 
-        assert not errors
-        assert q.size == 250
+def test_fifo_on_equal_priority():
+    """Equal-priority tasks must come out in insertion order (FIFO)."""
+    import time
+    q = TaskQueue()
+    t1 = Task("first", {}, priority=5)
+    time.sleep(0.001)
+    t2 = Task("second", {}, priority=5)
+    time.sleep(0.001)
+    t3 = Task("third", {}, priority=5)
 
-    def test_concurrent_consumers(self):
-        q = TaskQueue(max_size=100)
-        for i in range(100):
-            q.put(Task(payload=i))
+    q.push(t1)
+    q.push(t2)
+    q.push(t3)
 
-        results = []
-        lock = threading.Lock()
+    assert q.pop().id == "first"
+    assert q.pop().id == "second"
+    assert q.pop().id == "third"
 
-        def consumer():
-            try:
-                while True:
-                    task = q.get_nowait()
-                    with lock:
-                        results.append(task.payload)
-            except QueueEmptyError:
-                pass
 
-        threads = [threading.Thread(target=consumer) for _ in range(10)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+def test_peek_does_not_remove():
+    q = TaskQueue()
+    t = Task("t1", {}, priority=5)
+    q.push(t)
+    assert q.peek() is t
+    assert q.size == 1
+    assert q.peek() is t  # idempotent
 
-        assert len(results) == 100
-        assert sorted(results) == list(range(100))
+
+def test_peek_priority_order():
+    q = TaskQueue()
+    q.push(Task("low", {}, priority=1))
+    q.push(Task("high", {}, priority=99))
+    assert q.peek().id == "high"
+
+
+# ── contains / id tracking ────────────────────────────────────────────────────
+
+def test_contains_after_push():
+    q = TaskQueue()
+    q.push(Task("abc", {}))
+    assert q.contains("abc") is True
+    assert q.contains("xyz") is False
+
+
+def test_contains_false_after_pop():
+    q = TaskQueue()
+    q.push(Task("abc", {}))
+    q.pop()
+    assert q.contains("abc") is False
+
+
+# ── maxsize / bounded queue ───────────────────────────────────────────────────
+
+def test_maxsize_respected():
+    q = TaskQueue(maxsize=2)
+    q.push(Task("t1", {}))
+    q.push(Task("t2", {}))
+    with pytest.raises(QueueFullError):
+        q.push(Task("t3", {}))
+
+
+def test_maxsize_zero_is_unlimited():
+    q = TaskQueue(maxsize=0)
+    for i in range(500):
+        q.push(Task(f"t{i}", {}))
+    assert q.size == 500
+
+
+def test_push_after_pop_on_bounded_queue():
+    q = TaskQueue(maxsize=1)
+    q.push(Task("t1", {}))
+    q.pop()
+    q.push(Task("t2", {}))  # should not raise
+    assert q.size == 1
+
+
+# ── __len__ ───────────────────────────────────────────────────────────────────
+
+def test_len_alias():
+    q = TaskQueue()
+    assert len(q) == 0
+    q.push(Task("t1", {}))
+    assert len(q) == 1

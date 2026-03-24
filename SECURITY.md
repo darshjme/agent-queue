@@ -1,28 +1,25 @@
 # Security Policy
 
-## Supported versions
+## Supported Versions
 
 | Version | Supported |
 |---------|-----------|
-| 0.1.x   | ✅        |
+| 1.x     | ✅ Yes     |
 
-## Reporting a vulnerability
+## Reporting a Vulnerability
 
 Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Instead, email **security@example.com** with:
+Email: darshjme@gmail.com
 
+Include:
 - A description of the vulnerability
 - Steps to reproduce
 - Potential impact
+- Any suggested fix (optional)
 
-We aim to respond within 72 hours and publish a fix within 14 days.
+You will receive a response within 72 hours. If confirmed, a patch will be released within 14 days and you will be credited in the changelog (unless you prefer anonymity).
 
 ## Scope
 
-agent-queue is a pure-stdlib, in-process library.  
-Attack surface is limited to:
-
-- **Resource exhaustion** — callers control `max_size`; set it appropriately.
-- **Payload trust** — `task.payload` is arbitrary Python objects; never deserialise untrusted data without validation.
-- **Thread safety** — all public methods are designed for concurrent access; avoid monkey-patching internal state.
+`agent-queue` is a pure in-memory library with no network I/O, no file system access beyond explicit serialization calls by the user, and zero external dependencies. The primary security concern is safe deserialization: always validate `Task.from_dict()` input when loading from untrusted sources.

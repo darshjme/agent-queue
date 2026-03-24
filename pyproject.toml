@@ -4,31 +4,32 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-queue"
-version = "0.1.0"
-description = "Production task queue for async LLM agent workloads — pure stdlib, thread-safe, priority + deduplication"
+version = "1.0.0"
+description = "Priority task queue for multi-agent systems"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-keywords = ["llm", "agents", "queue", "async", "task-queue", "priority-queue"]
+authors = [{ name = "Darshankumar Joshi", email = "darshjme@gmail.com" }]
+keywords = ["queue", "priority-queue", "multi-agent", "task-queue", "agents"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
     "Topic :: System :: Distributed Computing",
 ]
-dependencies = []  # zero runtime dependencies — pure stdlib
+dependencies = []
 
-[project.optional-dependencies]
-dev = ["pytest>=7", "pytest-timeout"]
+[project.urls]
+Homepage = "https://github.com/darshjme-codes/agent-queue"
+Repository = "https://github.com/darshjme-codes/agent-queue"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-timeout = 30

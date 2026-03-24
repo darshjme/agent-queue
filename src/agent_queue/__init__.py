@@ -1,21 +1,9 @@
-"""
-agent-queue: Production task queue for async LLM agent workloads.
-
-Pure stdlib, thread-safe, with priority ordering and deduplication.
-"""
+"""agent-queue: Priority task queue for multi-agent systems."""
 
 from .task import Task
-from .queue import TaskQueue, QueueFullError, QueueEmptyError
-from .dedup_queue import DeduplicatingQueue
-from .worker_pool import WorkerPool
+from .queue import TaskQueue
+from .dead_letter import DeadLetterQueue
+from .worker import QueueWorker
 
-__all__ = [
-    "Task",
-    "TaskQueue",
-    "QueueFullError",
-    "QueueEmptyError",
-    "DeduplicatingQueue",
-    "WorkerPool",
-]
-
-__version__ = "0.1.0"
+__all__ = ["Task", "TaskQueue", "DeadLetterQueue", "QueueWorker"]
+__version__ = "1.0.0"

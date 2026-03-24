@@ -1,23 +1,23 @@
 Metadata-Version: 2.4
 Name: agent-queue
-Version: 0.1.0
-Summary: Production task queue for async LLM agent workloads — pure stdlib, thread-safe, priority + deduplication
+Version: 1.0.0
+Summary: Priority task queue for multi-agent systems
+Author-email: Darshankumar Joshi <darshjme@gmail.com>
 License: MIT
-Keywords: llm,agents,queue,async,task-queue,priority-queue
-Classifier: Development Status :: 4 - Beta
+Project-URL: Homepage, https://github.com/darshjme-codes/agent-queue
+Project-URL: Repository, https://github.com/darshjme-codes/agent-queue
+Keywords: queue,priority-queue,multi-agent,task-queue,agents
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Distributed Computing
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: dev
-Requires-Dist: pytest>=7; extra == "dev"
-Requires-Dist: pytest-timeout; extra == "dev"
 
 # agent-queue
 

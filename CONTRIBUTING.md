@@ -1,37 +1,38 @@
 # Contributing to agent-queue
 
-Thank you for your interest in improving **agent-queue**!
+Thank you for your interest in contributing!
 
-## Development setup
+## Development Setup
 
 ```bash
-git clone https://github.com/example/agent-queue.git
+git clone https://github.com/darshjme-codes/agent-queue
 cd agent-queue
-python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-## Running tests
+## Running Tests
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-All tests must pass before opening a PR.
+All tests must pass before submitting a PR.
 
-## Code style
+## Guidelines
 
-- Follow PEP 8.
-- Type-annotate all public functions and methods.
-- Keep zero runtime dependencies — stdlib only.
+- **Zero dependencies** — keep `agent_queue` stdlib-only
+- **Python ≥ 3.10** — use modern type hints (`str | None`, etc.)
+- **Tests first** — add tests for any new behaviour
+- **Docstrings** — public API must have clear docstrings
+- **Conventional commits** — `feat:`, `fix:`, `docs:`, `test:`, `refactor:`
 
-## Submitting changes
+## Pull Request Process
 
-1. Fork the repo and create a feature branch.
-2. Write tests that cover your change.
-3. Update `CHANGELOG.md` under `[Unreleased]`.
-4. Open a pull request with a clear description.
+1. Fork the repo and create a feature branch
+2. Write tests for your change
+3. Ensure `python -m pytest` passes with no failures
+4. Open a PR with a clear description of what changed and why
 
-## Reporting bugs
+## Code of Conduct
 
-Open a GitHub issue. Include Python version, OS, and a minimal reproducible example.
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
