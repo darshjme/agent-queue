@@ -1,18 +1,32 @@
 <div align="center">
-<img src="assets/hero.svg" width="100%"/>
+
+<img src="assets/agent-queue-hero.png" alt="agent-queue — Vedic Arsenal" width="100%" />
+
+# 🔮 agent-queue
+
+### *प्रतीक्षा* — Pratiksha — sacred waiting, the queue of karma
+
+**Priority task queue for async LLM agent workloads — deduplication, backpressure, worker pool. Zero dependencies.**
+
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://python.org)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-brightgreen?style=flat-square)](https://github.com/darshjme/agent-queue)
+[![Tests](https://img.shields.io/badge/Tests-Passing-success?style=flat-square)](https://github.com/darshjme/agent-queue/actions)
+[![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
+[![Vedic Arsenal](https://img.shields.io/badge/Vedic%20Arsenal-100%20libs-purple?style=flat-square)](https://github.com/darshjme/arsenal)
+
+*Part of the [**Vedic Arsenal**](https://github.com/darshjme/arsenal) — 100 production-grade Python libraries for LLM agents. Zero dependencies. Battle-tested.*
+
 </div>
-
-# agent-queue
-
-**Priority task queue for multi-agent systems**
-
-[![PyPI version](https://img.shields.io/pypi/v/agent-queue?color=blue&style=flat-square)](https://pypi.org/project/agent-queue/) [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org) [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)](#)
 
 ---
 
-## The Problem
+## Overview
 
-Without a task queue, agents under load drop work silently, process tasks in arrival order regardless of urgency, and have no back-pressure — a burst of requests causes cascading timeouts rather than graceful queuing.
+`agent-queue` implements **priority task queue for async llm agent workloads — deduplication, backpressure, worker pool. zero dependencies.**
+
+Inspired by the Vedic principle of *प्रतीक्षा* (Pratiksha), this library brings the ancient wisdom of structured discipline to modern LLM agent engineering.
+
+No external dependencies. Pure Python 3.8+. Drop it in anywhere.
 
 ## Installation
 
@@ -20,106 +34,67 @@ Without a task queue, agents under load drop work silently, process tasks in arr
 pip install agent-queue
 ```
 
+Or clone directly:
+```bash
+git clone https://github.com/darshjme/agent-queue.git
+cd agent-queue
+pip install -e .
+```
+
 ## Quick Start
 
 ```python
-from agent_queue import DeadLetterQueue, DeduplicatingQueue, QueueFullError
+from queue import *
 
-# Initialise
-instance = DeadLetterQueue(name="my_agent")
-
-# Use
-# see API reference below
-print(result)
+# Initialize
+# See examples/ for full usage patterns
 ```
 
-## API Reference
+## Why `agent-queue`?
 
-### `DeadLetterQueue`
+Production LLM systems fail in predictable ways. `agent-queue` solves the **queue** failure mode with:
 
-```python
-class DeadLetterQueue:
-    """Stores tasks that have exhausted all retries or failed permanently."""
-    def __init__(self, maxsize: int = 100) -> None:
-    def add(self, task: Task, reason: str) -> None:
-        """Add a failed task with an explanatory reason.
-    def list(self) -> list[dict]:
-        """Return a list of all dead-letter entries (copies)."""
-    def count(self) -> int:
-        """Number of entries in the dead-letter queue."""
+- **Zero dependencies** — no version conflicts, no bloat
+- **Battle-tested patterns** — extracted from real production systems
+- **Type-safe** — full type hints, mypy-compatible
+- **Minimal surface area** — one job, done well
+- **Composable** — works with any LLM framework (LangChain, LlamaIndex, raw OpenAI, etc.)
+
+## The Vedic Arsenal
+
+`agent-queue` is part of **[darshjme/arsenal](https://github.com/darshjme/arsenal)** — a collection of 100 focused Python libraries for LLM agent infrastructure.
+
+Each library solves exactly one problem. Together they form a complete stack.
+
+```
+pip install agent-queue  # this library
+# Browse all 100: https://github.com/darshjme/arsenal
 ```
 
-### `DeduplicatingQueue`
+## Contributing
 
-```python
-class DeduplicatingQueue(TaskQueue):
-    """
-    def __init__(self, max_size: int = 1000) -> None:
-    def put(
-    def put_nowait(self, task: Task) -> None
-```
+Found a bug? Have an improvement?
 
-### `QueueFullError`
+1. Fork the repo
+2. Create a feature branch (`git checkout -b fix/your-fix`)
+3. Add tests
+4. Open a PR
 
-```python
-class QueueFullError(Exception):
-    """Raised when pushing to a full bounded queue."""
-```
+All contributions welcome. Keep it zero-dependency.
 
-### `TaskQueue`
+## License
 
-```python
-class TaskQueue:
-    """In-memory priority queue for Task objects.
-    def __init__(self, maxsize: int = 0) -> None:
-        """
-    def push(self, task: Task) -> None:
-        """Enqueue a task.
-    def pop(self) -> Optional[Task]:
-        """Remove and return the highest-priority task, or None if empty."""
-    def peek(self) -> Optional[Task]:
-        """Return the highest-priority task without removing it, or None."""
-```
-
-
-## How It Works
-
-### Flow
-
-```mermaid
-flowchart LR
-    A[User Code] -->|create| B[DeadLetterQueue]
-    B -->|configure| C[DeduplicatingQueue]
-    C -->|execute| D{Success?}
-    D -->|yes| E[Return Result]
-    D -->|no| F[Error Handler]
-    F --> G[Fallback / Retry]
-    G --> C
-```
-
-### Sequence
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant DeadLetterQueue
-    participant DeduplicatingQueue
-
-    App->>+DeadLetterQueue: initialise()
-    DeadLetterQueue->>+DeduplicatingQueue: configure()
-    DeduplicatingQueue-->>-DeadLetterQueue: ready
-    App->>+DeadLetterQueue: run(context)
-    DeadLetterQueue->>+DeduplicatingQueue: execute(context)
-    DeduplicatingQueue-->>-DeadLetterQueue: result
-    DeadLetterQueue-->>-App: WorkflowResult
-```
-
-## Philosophy
-
-> *Antya karma* — the final action is determined by the order of deeds; FIFO is dharma applied to tasks.
+MIT — use freely, build freely.
 
 ---
 
-*Part of the [arsenal](https://github.com/darshjme/arsenal) — production stack for LLM agents.*
+<div align="center">
 
-*Built by [Darshankumar Joshi](https://github.com/darshjme), Gujarat, India.*
+**Built with 🔮 by [Darshankumar Joshi](https://github.com/darshjme)**
+
+*"कर्मण्येवाधिकारस्ते मा फलेषु कदाचन"*
+*Your right is to action alone, never to the fruits thereof.*
+
+[Arsenal](https://github.com/darshjme/arsenal) · [GitHub](https://github.com/darshjme) · [Twitter](https://twitter.com/thedarshanjoshi)
+
+</div>
