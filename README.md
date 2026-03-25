@@ -1,115 +1,103 @@
 <div align="center">
 
-<img src="assets/agent-queue-hero.png" alt="agent-queue — Vedic Arsenal by Darshankumar Joshi" width="100%" />
+<img src="assets/pratiksha-hero.png" alt="प्रतीक्षा — pratiksha by Darshankumar Joshi" width="100%" />
 
-# 🔮 agent-queue
+# 🔮 प्रतीक्षा
+## `pratiksha`
 
-<h3><em>प्रतीक्षा</em></h3>
+> *Ramayana — Sita in Ashoka Vatika*
 
-> *Pratiksha — sacred waiting, the queue of karma*
+### Sacred Waiting — Sita's devotion
 
-**Priority task queue for async LLM agent workloads — deduplication, backpressure, worker pool. Zero dependencies.**
+**Message queue for LLM agent tasks. Priority queuing, dead-letter, at-least-once delivery.**
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://python.org)
-[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-brightgreen?style=flat-square)](https://github.com/darshjme/agent-queue)
-[![Tests](https://img.shields.io/badge/Tests-Passing-success?style=flat-square)](https://github.com/darshjme/agent-queue/actions)
-[![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-brightgreen?style=flat-square)](https://github.com/darshjme/pratiksha)
 [![Vedic Arsenal](https://img.shields.io/badge/Vedic%20Arsenal-100%20libs-purple?style=flat-square)](https://github.com/darshjme/arsenal)
+[![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
 
-*Part of the [**Vedic Arsenal**](https://github.com/darshjme/arsenal) — 100 production-grade Python libraries for LLM agents. Zero dependencies. Battle-tested.*
+*Formerly `agent-queue` — Part of the [**Vedic Arsenal**](https://github.com/darshjme/arsenal): 100 production-grade Python libraries for LLM agents, each named from the Vedas, Puranas, and Mahakavyas.*
 
 </div>
 
 ---
 
-## Overview
+## The Vedic Principle
 
-`agent-queue` implements **priority task queue for async llm agent workloads — deduplication, backpressure, worker pool. zero dependencies.**
+The ancient *Pratiksha* principle from Ramayana — Sita in Ashoka Vatika finds its modern expression in this library.
 
-Inspired by the Vedic principle of *प्रतीक्षा* (Pratiksha), this library brings the ancient wisdom of structured discipline to modern LLM agent engineering.
+Just as the Vedic sages understood that every phenomenon in the universe follows deep patterns — patterns of creation, maintenance, and dissolution — `pratiksha` applies this wisdom to LLM agent engineering.
 
-No external dependencies. Pure Python 3.8+. Drop it in anywhere.
+The concept of *प्रतीक्षा* (Sacred Waiting — Sita's devotion) speaks directly to the technical problem this library solves. When the sages codified this principle in Ramayana — Sita in Ashoka Vatika, they were describing not just a spiritual truth but a computational truth that would take humanity millennia to rediscover in silicon.
 
-## Installation
+This is not coincidence. The universe has one nature. The Vedas described it first.
 
-```bash
-pip install agent-queue
-```
-
-Or clone directly:
-```bash
-git clone https://github.com/darshjme/agent-queue.git
-cd agent-queue
-pip install -e .
-```
+---
 
 ## How It Works
 
 ```mermaid
 flowchart LR
-    A[Input] --> B[agent-queue]
+    A[Input] --> B[pratiksha]
     B --> C{Process}
     C -- Success --> D[Output]
-    C -- Error --> E[Handle / Retry]
+    C -- Error --> E[Handle]
     E --> B
     style B fill:#6b21a8,color:#fff
-    note["Queue — Zero Dependencies"]
+```
+
+---
+
+## Installation
+
+```bash
+pip install pratiksha
+```
+
+Or from source:
+```bash
+git clone https://github.com/darshjme/pratiksha.git
+cd pratiksha && pip install -e .
 ```
 
 ## Quick Start
 
 ```python
-from queue import *
+from pratiksha import *
 
-# Initialize
-# See examples/ for full usage patterns
+# See examples/ for full usage
 ```
 
-## Why `agent-queue`?
-
-Production LLM systems fail in predictable ways. `agent-queue` solves the **queue** failure mode with:
-
-- **Zero dependencies** — no version conflicts, no bloat
-- **Battle-tested patterns** — extracted from real production systems
-- **Type-safe** — full type hints, mypy-compatible
-- **Minimal surface area** — one job, done well
-- **Composable** — works with any LLM framework (LangChain, LlamaIndex, raw OpenAI, etc.)
+---
 
 ## The Vedic Arsenal
 
-`agent-queue` is part of **[darshjme/arsenal](https://github.com/darshjme/arsenal)** — a collection of 100 focused Python libraries for LLM agent infrastructure.
+`pratiksha` is one of 100 libraries in **[darshjme/arsenal](https://github.com/darshjme/arsenal)** — each named from sacred Indian literature:
 
-Each library solves exactly one problem. Together they form a complete stack.
+| Sanskrit Name | Source | Technical Function |
+|---|---|---|
+| `pratiksha` | Ramayana — Sita in Ashoka Vatika | Sacred Waiting — Sita's devotion |
 
-```
-pip install agent-queue  # this library
-# Browse all 100: https://github.com/darshjme/arsenal
-```
+Each library solves one problem. Zero external dependencies. Pure Python 3.8+.
+
+---
 
 ## Contributing
 
-Found a bug? Have an improvement?
-
 1. Fork the repo
-2. Create a feature branch (`git checkout -b fix/your-fix`)
-3. Add tests
+2. Create feature branch (`git checkout -b fix/your-fix`)  
+3. Add tests — zero dependencies only
 4. Open a PR
-
-All contributions welcome. Keep it zero-dependency.
-
-## License
-
-MIT — use freely, build freely.
 
 ---
 
 <div align="center">
 
-**Built with 🔮 by [Darshankumar Joshi](https://github.com/darshjme)** · [@thedarshanjoshi](https://twitter.com/thedarshanjoshi)
+**🔮 Built by [Darshankumar Joshi](https://github.com/darshjme)** · [@thedarshanjoshi](https://twitter.com/thedarshanjoshi)
 
 *"कर्मण्येवाधिकारस्ते मा फलेषु कदाचन"*
-*Your right is to action alone, never to the fruits thereof.*
+*Your right is to action alone, never to its fruits. — Bhagavad Gita 2.47*
 
-[Arsenal](https://github.com/darshjme/arsenal) · [GitHub](https://github.com/darshjme) · [Twitter](https://twitter.com/thedarshanjoshi)
+[Vedic Arsenal](https://github.com/darshjme/arsenal) · [GitHub](https://github.com/darshjme) · [Twitter](https://twitter.com/thedarshanjoshi)
 
 </div>
